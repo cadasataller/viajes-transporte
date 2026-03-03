@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CADASA | Control de Transporte</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root {
+      --navy:#0B1D3A; --accent:#FFC107; --accent2:#0066FF;
+      --surface:#F4F7FC; --white:#FFFFFF; --text:#1A2740;
+      --muted:#6B7FA3; --border:#DDE4EF; --row-hover:#EBF2FF;
+      --card-padding:1rem;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);min-height:100vh;}
+
+    /* LOGIN */
+    #login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#142850,#0B1D3A);padding:20px;}
+    .login-card{background:rgba(255,255,255,.08);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);padding:3rem 2.5rem;border-radius:24px;width:100%;max-width:420px;text-align:center;box-shadow:0 25px 50px rgba(0,0,0,.4);}
+    .login-card h2{font-family:'Syne',sans-serif;color:white;margin-bottom:.5rem;letter-spacing:-1px;}
+    .login-card>p{color:var(--accent);font-size:.75rem;text-transform:uppercase;letter-spacing:2px;margin-bottom:2rem;}
+    .input-group{margin-bottom:1.2rem;text-align:left;}
+    .input-group label{display:block;color:rgba(255,255,255,.7);font-size:.7rem;margin-bottom:.5rem;font-weight:600;}
+    .input-group input{width:100%;padding:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:white;transition:.3s;}
+    .input-group input:focus{outline:none;border-color:var(--accent);background:rgba(255,255,255,.15);}
+    .login-btn{width:100%;padding:16px;background:var(--accent);border:none;border-radius:12px;font-weight:800;cursor:pointer;color:var(--navy);transition:.3s;font-family:'Syne';}
+    .login-btn:hover{background:#ffca2c;transform:translateY(-2px);}
+    #error-msg{color:#ff5f57;display:none;margin-top:1.5rem;font-weight:600;}
+
+    /* DASHBOARD */
+    #dashboard-page{display:none;}
+
+    /* TOPBAR */
+    .topbar{background:var(--navy);display:flex;align-items:center;justify-content:space-between;min-height:70px;color:white;border-bottom:3px solid var(--accent);position:sticky;top:0;z-index:100;gap:.75rem;flex-wrap:wrap;padding:.75rem 1rem;}
+    .topbar-brand{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
+    .logo-icon{width:42px;height:42px;fill:var(--accent);flex-shrink:0;}
+    .topbar-brand-text{font-family:'Syne';font-weight:800;font-size:1rem;letter-spacing:-.5px;white-space:nowrap;}
+    .topbar-right{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
+    #timestamp{font-size:.75rem;color:rgba(255,255,255,.6);text-align:right;line-height:1.5;}
+    .btn-logout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);padding:8px 14px;border-radius:8px;color:white;cursor:pointer;font-family:'DM Sans';font-weight:600;font-size:.8rem;white-space:nowrap;transition:background .2s;flex-shrink:0;}
+    .btn-logout:hover{background:rgba(255,255,255,.15);}
+
+    /* LAYOUT */
+    .container{max-width:1400px;margin:0 auto;padding:1.5rem;}
+    .page-header{margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;}
+    .page-header h1{font-family:'Syne',sans-serif;font-size:1.4rem;}
+    .small-note{font-size:.8rem;color:var(--muted);margin-top:.5rem;}
+    .card{background:white;border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.05);padding:var(--card-padding);}
+
+    /* TABS */
+    .tabs-bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:space-between;}
+    .tabs-left{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .tabs-actions{display:flex;gap:.5rem;}
+    .tab{padding:8px 14px;border-radius:10px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:600;font-size:.85rem;}
+    .tab.active{background:var(--navy);color:white;border-color:var(--navy);box-shadow:0 6px 18px rgba(11,29,58,.12);}
+    .tab-action{padding:8px 14px;border-radius:10px;background:white;border:1px solid var(--border);cursor:pointer;font-weight:600;font-size:.85rem;}
+    .tab-action:hover{background:#f0f4ff;}
+    .tabs-main-card{background:white;border-radius:16px;border:1px solid var(--border);box-shadow:0 10px 30px rgba(0,0,0,.05);padding:var(--card-padding);}
+
+    /* METRICS */
+    .metrics{display:flex;gap:.75rem;flex-wrap:wrap;}
+    .metric{background:white;border-radius:8px;padding:.85rem 1rem;min-width:130px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(11,29,58,.06);}
+    .metric h3{margin-bottom:.25rem;font-size:1.35rem;color:var(--navy);font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:-.5px;}
+    .metric p{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+    @media(max-width:600px){.metric{min-width:100%;flex:1 1 100%;}}
+
+    /* DETAIL TABLE */
+    .table-wrapper{overflow-x:auto;max-height:62vh;border-radius:8px;}
+    .table-wrapper table{min-width:500px;width:100%;border-collapse:collapse;font-size:.84rem;}
+    .header-row td{background:var(--navy);color:white;font-weight:700;padding:.75rem .7rem;font-size:.71rem;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;white-space:nowrap;}
+    .month-divider td{padding:.6rem .8rem;font-weight:700;color:var(--navy);font-size:.85rem;background:#f0f4ff;border-left:4px solid var(--accent2);white-space:nowrap;letter-spacing:.3px;}
+    .data-row td{padding:.5rem .7rem;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle;}
+    .data-row:hover{background:var(--row-hover);}
+    .subtotal-row td{padding:.45rem .8rem;background:#EBF5FB;font-weight:600;color:#1565C0;white-space:nowrap;font-size:.82rem;}
+    .subtotal-inner{display:flex;align-items:center;gap:.4rem;justify-content:flex-end;}
+    @media(max-width:768px){.subtotal-inner{justify-content:flex-start;}}
+    .grand-total-row td{padding:.6rem .8rem;background:var(--navy);color:white;font-weight:700;font-size:.88rem;white-space:nowrap;}
+    .gtotal-inner{display:flex;align-items:center;gap:.4rem;justify-content:flex-end;}
+    @media(max-width:768px){.gtotal-inner{justify-content:flex-start;}}
+    .loader{padding:2rem;text-align:center;color:var(--muted);font-weight:500;}
+
+    /* CELL BADGES */
+    .count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:26px;padding:0 8px;background:#EEF2FF;color:var(--navy);border-radius:5px;font-weight:600;font-size:.84rem;font-family:'IBM Plex Mono',monospace;border:1px solid #C7D2FE;}
+    .turno-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.69rem;font-weight:600;letter-spacing:.3px;}
+    .turno-d{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;}
+    .turno-n{background:#F5F3FF;color:#5B21B6;border:1px solid #DDD6FE;}
+    .frente-badge{display:inline-block;padding:2px 7px;border-radius:4px;background:#FFF7ED;color:#C2410C;font-size:.72rem;font-weight:600;border:1px solid #FED7AA;}
+    .fecha-cell{color:var(--text);font-size:.82rem;font-family:'IBM Plex Mono',monospace;}
+    .trans-cell{font-weight:600;color:var(--navy);}
+
+    /* STAT BOXES */
+    .detail-extras{margin-top:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:.65rem;}
+    .stat-box{background:var(--navy);border-radius:8px;padding:.85rem 1rem;color:white;border:1px solid rgba(255,255,255,.06);}
+    .stat-box .val{font-family:'IBM Plex Mono',monospace;font-size:1.4rem;font-weight:600;color:var(--accent);letter-spacing:-.5px;}
+    .stat-box .lbl{font-size:.73rem;color:rgba(255,255,255,.55);margin-top:.25rem;text-transform:uppercase;letter-spacing:.4px;}
+    .stat-box-light{background:white;border:1px solid var(--border);border-radius:8px;padding:.85rem 1rem;}
+    .stat-box-light .lbl-head{font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.5px;color:var(--muted);margin-bottom:.5rem;}
+    .stat-row{display:flex;justify-content:space-between;align-items:center;font-size:.84rem;padding:.2rem 0;border-bottom:1px solid #f4f4f4;}
+    .stat-row:last-child{border-bottom:none;}
+    .stat-row strong{color:var(--navy);font-family:'IBM Plex Mono',monospace;font-size:.82rem;font-weight:600;}
+
+    @media(max-width:600px){.container{padding:.75rem;}.page-header h1{font-size:1.1rem;}.table-wrapper{max-height:50vh;}.login-card{padding:2rem;border-radius:16px;}.tabs-actions{flex-wrap:wrap;}}
+
+    /* Summary table */
+    #summary-table{min-width:0;width:100%;table-layout:fixed;}
+    #summary-table td{word-break:break-word;white-space:normal;padding:.5rem .6rem;font-size:.85rem;}
+    @media(max-width:600px){
+      #summary-table{font-size:.78rem;}
+      #summary-table td{padding:.38rem .45rem;font-size:.78rem;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-card">
+    <svg class="logo-icon" style="margin-bottom:1rem" viewBox="0 0 24 24">
+      <path d="M20,8H17V4H3C1.89,4 1,4.89 1,6V17H3A3,3 0 0,0 6,20A3,3 0 0,0 9,17H15A3,3 0 0,0 18,20A3,3 0 0,0 21,17H23V12L20,8M6,18.5A1.5,1.5 0 0,1 4.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,17A1.5,1.5 0 0,1 6,18.5M18,18.5A1.5,1.5 0 0,1 16.5,17A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 19.5,17A1.5,1.5 0 0,1 18,18.5M17,12V9.5H19.5L21.47,12H17Z"/>
+    </svg>
+    <h2>CADASA</h2>
+    <p>Control de Transporte</p>
+    <div class="input-group"><label>USUARIO DE ACCESO</label><input type="text" id="username" autocomplete="off"/></div>
+    <div class="input-group"><label>CONTRASEÑA</label><input type="password" id="password"/></div>
+    <button class="login-btn" onclick="login()">INICIAR SESIÓN</button>
+    <p id="error-msg">Acceso denegado</p>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-page">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg class="logo-icon" viewBox="0 0 24 24">
+        <path d="M20,8H17V4H3C1.89,4 1,4.89 1,6V17H3A3,3 0 0,0 6,20A3,3 0 0,0 9,17H15A3,3 0 0,0 18,20A3,3 0 0,0 21,17H23V12L20,8M6,18.5A1.5,1.5 0 0,1 4.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,17A1.5,1.5 0 0,1 6,18.5M18,18.5A1.5,1.5 0 0,1 16.5,17A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 19.5,17A1.5,1.5 0 0,1 18,18.5M17,12V9.5H19.5L21.47,12H17Z"/>
+      </svg>
+      <span class="topbar-brand-text">CADASA <span style="color:var(--accent)">TRANSPORTE</span></span>
+    </div>
+    <div class="topbar-right">
+      <div id="timestamp"></div>
+      <button class="btn-logout" onclick="logout()">✕ Cerrar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <h1 id="display-user">Bienvenido</h1>
+        <p class="small-note">Contrato: <strong id="display-contrato" style="color:var(--accent2)">---</strong></p>
+      </div>
+      <div id="status-note" class="small-note"></div>
+    </div>
+
+    <div class="tabs-main-card">
+      <div class="tabs-bar">
+        <div class="tabs-left">
+          <div class="tab active" onclick="switchTab('resumen',this)">Resumen</div>
+          <div class="tab" onclick="switchTab('detalles',this)">Detalles</div>
+        </div>
+        <div class="tabs-actions">
+          <button class="tab-action" onclick="refreshData()">🔄 Refrescar</button>
+          <button class="tab-action" onclick="exportPDF()">📄 Exportar PDF</button>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem">
+
+        <!-- RESUMEN -->
+        <div id="panel-resumen">
+          <div class="card">
+            <h3 style="margin-bottom:.75rem;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700">Resumen de viajes</h3>
+            <div class="metrics" id="summary-cards"></div>
+            <div style="margin-top:1.25rem">
+              <h4 style="margin-bottom:.5rem;color:var(--muted);font-size:.73rem;text-transform:uppercase;letter-spacing:.5px;font-weight:700">Actividad por mes</h4>
+              <div><table id="summary-table"></table></div>
+            </div>
+          </div>
+          <div class="detail-extras" id="detail-extras" style="display:none;margin-top:.75rem"></div>
+        </div>
+
+        <!-- DETALLES -->
+        <div id="panel-detalles" style="display:none">
+          <div class="card">
+            <div id="loader" class="loader">Procesando registros de transporte...</div>
+            <div id="data-container" style="display:none">
+              <div class="table-wrapper"><table id="tabla-maestra"></table></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  USUARIOS
+// ─────────────────────────────────────────────
+const USER_DATA = {
+  "kherrera":    { pass:"48351171", contrato:"17232" },
+  "mgomez":      { pass:"4137792",  contrato:"17233" },
+  "rarauz":      { pass:"8477660",  contrato:"17234" },
+  "jnuñez":      { pass:"8502728",  contrato:"17235" },
+  "jcianca":     { pass:"418317",   contrato:"17236" },
+  "agonzalez":   { pass:"47122452", contrato:"17238" },
+  "garaúz":      { pass:"4727312",  contrato:"17239" },
+  "lortiz":      { pass:"151448",   contrato:"17240" },
+  "jsanchez":    { pass:"4718971",  contrato:"17241" },
+  "jcedeño":     { pass:"663498",   contrato:"17242" },
+  "mmarin":      { pass:"47771490", contrato:"17243" },
+  "ssantamaria": { pass:"97162322", contrato:"17244" },
+  "mavendaño":   { pass:"47351193", contrato:"17245" },
+  "cnuñez":      { pass:"4724535",  contrato:"17246" },
+  "cnuñez2":     { pass:"4724535",  contrato:"17247" },
+  "ngonzalez":   { pass:"4206594",  contrato:"17248" },
+  "mvasquez":    { pass:"47541812", contrato:"17249" },
+  "fcerceño":    { pass:"4787102",  contrato:"17250" },
+  "bbeita":      { pass:"47641964", contrato:"17251" },
+  "ccano":       { pass:"48262490", contrato:"17253" },
+  "jnuñez2":     { pass:"8502728",  contrato:"17252" },
+  "rquiel":      { pass:"4737783",  contrato:"17254" },
+  "jmorales":    { pass:"4702624",  contrato:"17255" },
+  "ymiranda":    { pass:"425062",   contrato:"17256" },
+  "amorales":    { pass:"4702624",  contrato:"17257" },
+  "cortega":     { pass:"4755965",  contrato:"17258" },
+  "nagonzalez":  { pass:"4730324",  contrato:"17259" },
+  "cnuñez3":     { pass:"4724535",  contrato:"17260" },
+  "fcerceño4":   { pass:"4787102",  contrato:"17261" },
+  "fcerceño3":   { pass:"4787102",  contrato:"17262" },
+  "vvigil":      { pass:"4214932",  contrato:"17263" },
+  "jserrano":    { pass:"4747445",  contrato:"17267" },
+  "ccastro":     { pass:"4800662",  contrato:"17268" },
+  "jsanchez2":   { pass:"4718971",  contrato:"17269" },
+  "fcerceño2":   { pass:"4253592",  contrato:"17270" },
+  "bbeita2":     { pass:"47641964", contrato:"17271" },
+  "ccarreño":    { pass:"4746749",  contrato:"17272" },
+  "smorales":    { pass:"4274891",  contrato:"17273" },
+  "aalfaro":     { pass:"47271741", contrato:"17274" }
+};
+
+const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO",
+               "AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+
+// Columnas a EXCLUIR de la tabla de detalles
+const COLS_EXCLUIDAS = ["status","viajes","dia_zafra"];
+
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSKNF5AhWaVGQo2l1-WxMg7c6ngj23y17d92TlwpEuOwb51obUG1G41g5JphGiEQ/pub?gid=75071836&single=true&output=csv";
+
+let GLOBAL = {
+  rawCSV:"", header:[], rows:[], filteredRows:[],
+  visibleColIdx:[], isFallback:false, currentContrato:null
+};
+
+// ─────────────────────────────────────────────
+//  AUTH
+// ─────────────────────────────────────────────
+function login() {
+  const u = document.getElementById('username').value.trim().toLowerCase();
+  const p = document.getElementById('password').value.trim();
+  if (USER_DATA[u] && USER_DATA[u].pass === p) {
+    sessionStorage.setItem('isLogged','true');
+    sessionStorage.setItem('contrato', USER_DATA[u].contrato);
+    sessionStorage.setItem('userName', u);
+    showDashboard();
+  } else {
+    const em = document.getElementById('error-msg');
+    em.style.display = 'block';
+    em.textContent = 'Acceso denegado';
+  }
+}
+document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+function logout() { sessionStorage.clear(); location.reload(); }
+window.onload = () => { if(sessionStorage.getItem('isLogged')) showDashboard(); };
+
+function showDashboard() {
+  const contrato = sessionStorage.getItem('contrato');
+  GLOBAL.currentContrato = contrato;
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('dashboard-page').style.display = 'block';
+  document.getElementById('display-contrato').textContent = contrato;
+  document.getElementById('display-user').textContent = "Usuario: " + sessionStorage.getItem('userName').toUpperCase();
+  const now = new Date();
+  document.getElementById('timestamp').innerHTML =
+    `<span style="display:block">${now.toLocaleDateString('es-PA',{day:'2-digit',month:'short',year:'numeric'})}</span>
+     <span style="display:block">${now.toLocaleTimeString('es-PA',{hour:'2-digit',minute:'2-digit'})}</span>`;
+  fetchAndFilterData(contrato);
+}
+
+// ─────────────────────────────────────────────
+//  FIX 1 — PARSER CSV ROBUSTO
+//  Maneja celdas vacías, comillas escapadas y
+//  filas con distinto número de columnas.
+// ─────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+  if (!lines.length) return { header:[], rows:[] };
+
+  function splitLine(line) {
+    const result = [];
+    let cur = "", inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') { inQ = false; }
+        else { cur += ch; }
+      } else {
+        if (ch === '"') { inQ = true; }
+        else if (ch === ',') { result.push(cur.trim()); cur = ""; }
+        else { cur += ch; }
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  const header = splitLine(lines[0]);
+  const rows = lines.slice(1).map(l => {
+    const r = splitLine(l);
+    // Rellenar o recortar para que siempre coincida con el header
+    while (r.length < header.length) r.push("");
+    return r.slice(0, header.length);
+  });
+  return { header, rows };
+}
+
+// ─────────────────────────────────────────────
+//  FIX 2 — EXTRAER MES DESDE COLUMNA "fecha"
+// ─────────────────────────────────────────────
+function extractMonthIndexFromRow(row) {
+  const hN = GLOBAL.header.map(normKey);
+  const iF = hN.indexOf("fecha");
+  const cell = String(row[iF !== -1 ? iF : 0] || "").trim();
+
+  // DD/MM/YYYY o DD-MM-YYYY
+  let m = cell.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) { const mn = parseInt(m[2],10); if (!isNaN(mn) && mn>=1 && mn<=12) return mn-1; }
+  // YYYY-MM-DD
+  m = cell.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) { const mn = parseInt(m[2],10); if (!isNaN(mn) && mn>=1 && mn<=12) return mn-1; }
+  return 99;
+}
+
+// ─────────────────────────────────────────────
+//  DATOS DEMO (sin conexión)
+// ─────────────────────────────────────────────
+function getFakeData() {
+  const header = ["fecha","viajes","nombre_transportista","dia_zafra","turno","frente","status","contrato"];
+  const rows = [
+    ["15/01/2026","8","Herrera, Rolando","15","Día","Norte","Activo","17232"],
+    ["16/01/2026","7","Herrera, Rolando","16","Noche","Norte","Activo","17232"],
+    ["18/01/2026","9","Herrera, Rolando","18","Día","Sur","Activo","17232"],
+    ["20/01/2026","6","Herrera, Rolando","20","Día","Norte","Activo","17232"],
+    ["22/01/2026","8","Herrera, Rolando","22","Noche","Sur","Activo","17232"],
+    ["05/02/2026","10","Herrera, Rolando","36","Día","Norte","Activo","17232"],
+    ["07/02/2026","7","Herrera, Rolando","38","Noche","Este","Activo","17232"],
+    ["10/02/2026","9","Herrera, Rolando","41","Día","Sur","Activo","17232"],
+    ["12/02/2026","5","Herrera, Rolando","43","Día","Norte","Pendiente","17232"],
+    ["14/02/2026","8","Herrera, Rolando","45","Noche","Sur","Activo","17232"],
+    ["03/03/2026","11","Herrera, Rolando","62","Día","Este","Activo","17232"],
+    ["05/03/2026","9","Herrera, Rolando","64","Noche","Norte","Activo","17232"],
+    ["08/03/2026","10","Herrera, Rolando","67","Día","Sur","Activo","17232"],
+  ];
+  return { header, rows };
+}
+
+// ─────────────────────────────────────────────
+//  FETCH + FILTRADO
+// ─────────────────────────────────────────────
+async function fetchAndFilterData(numContrato) {
+  const loader     = document.getElementById('loader');
+  const dataCont   = document.getElementById('data-container');
+  const statusNote = document.getElementById('status-note');
+  const detailExtras = document.getElementById('detail-extras');
+
+  loader.style.display = 'block';
+  dataCont.style.display = 'none';
+  detailExtras.style.display = 'none';
+  statusNote.textContent = "Conectando y procesando datos...";
+  GLOBAL.isFallback = false;
+  GLOBAL.rawCSV = "";
+  GLOBAL.header = [];
+  GLOBAL.rows = [];
+  GLOBAL.filteredRows = [];
+  GLOBAL.visibleColIdx = [];
+
+  try {
+    const res = await fetch(CSV_URL, { cache:"no-store" });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    GLOBAL.rawCSV = text;
+    const parsed = parseCSV(text);
+    // FIX 4 — limpiar espacios en los headers
+    GLOBAL.header = parsed.header.map(h => h.trim());
+    GLOBAL.rows   = parsed.rows;
+    statusNote.textContent = "Datos cargados.";
+  } catch(err) {
+    console.warn("Fallback:", err);
+    GLOBAL.isFallback = true;
+    statusNote.textContent = "⚠️ Datos de ejemplo — sin conexión al CSV.";
+    const fake = getFakeData();
+    GLOBAL.header = fake.header;
+    GLOBAL.rows   = fake.rows;
+  }
+
+  // FIX 3 — filtro normalizado
+  GLOBAL.filteredRows = GLOBAL.rows.filter(r =>
+    r.some(c => String(c).trim().replace(/\s+/g,"") === String(numContrato).trim())
+  );
+
+  // Calcular columnas visibles (excluir las columnas definidas)
+  const hN = GLOBAL.header.map(normKey);
+  GLOBAL.visibleColIdx = hN
+    .map((k, i) => ({ k, i }))
+    .filter(({ k }) => !COLS_EXCLUIDAS.includes(k))
+    .map(({ i }) => i);
+
+  buildDetailTable(GLOBAL.header, GLOBAL.filteredRows);
+  buildDetailExtras(GLOBAL.header, GLOBAL.filteredRows);
+  buildSummary(GLOBAL.filteredRows);
+
+  loader.style.display = 'none';
+  dataCont.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function normKey(s) { return String(s).trim().toLowerCase().replace(/\s+/g,'_'); }
+
+// Etiquetas amigables para los headers
+function getLabel(k) {
+  const labels = {
+    fecha:"Fecha", nombre_transportista:"Transportista",
+    turno:"Turno", frente:"Frente", contrato:"Contrato"
+  };
+  return labels[normKey(k)] || k;
+}
+
+function formatCell(colKey, value) {
+  const k   = normKey(colKey);
+  const raw = value ?? "";
+  const v   = escHtml(raw);
+  if (k === "turno") {
+    const lv  = String(raw).toLowerCase();
+    const cls = lv.startsWith("n") ? "turno-n" : "turno-d";
+    return `<span class="turno-badge ${cls}">${v}</span>`;
+  }
+  if (k === "frente")
+    return `<span class="frente-badge">${v}</span>`;
+  if (k === "nombre_transportista")
+    return `<span class="trans-cell">${v}</span>`;
+  if (k === "fecha")
+    return `<span class="fecha-cell">${v}</span>`;
+  return v;
+}
+
+// ─────────────────────────────────────────────
+//  TABLA DETALLE
+//  - Sin reordenar columnas (orden del CSV)
+//  - Excluye status, viajes, dia_zafra
+//  - Cuenta registros como viajes
+// ─────────────────────────────────────────────
+function buildDetailTable(header, rows) {
+  const table  = document.getElementById('tabla-maestra');
+  const visIdx = GLOBAL.visibleColIdx;
+
+  if (!header.length || !visIdx.length) {
+    table.innerHTML = "<tr><td>Sin cabeceras</td></tr>";
+    return;
+  }
+
+  const visHead = visIdx.map(i => header[i]);
+  const nc      = visHead.length;
+
+  // Agrupar por mes
+  const grouped = {};
+  rows.forEach(r => {
+    const mi = extractMonthIndexFromRow(r);
+    if (!grouped[mi]) grouped[mi] = [];
+    grouped[mi].push(r);
+  });
+  const keys = Object.keys(grouped).map(k => parseInt(k,10)).sort((a,b)=>a-b);
+
+  if (!keys.length) {
+    table.innerHTML = `<tr><td colspan="${nc}"><div class="loader">⚠️ No se encontraron viajes para este contrato.</div></td></tr>`;
+    return;
+  }
+
+  let html = `<tr class="header-row">${visHead.map(h=>`<td>${escHtml(getLabel(h))}</td>`).join("")}</tr>`;
+  let grand = 0;
+
+  keys.forEach(mIdx => {
+    const mn    = MESES[mIdx] || "SIN FECHA";
+    const mRows = grouped[mIdx];
+    grand += mRows.length;
+
+    html += `<tr class="month-divider"><td colspan="${nc}">${mn} — ${mRows.length} viaje${mRows.length!==1?'s':''}</td></tr>`;
+
+    mRows.forEach(row => {
+      html += `<tr class="data-row">${visIdx.map((origIdx, pos) =>
+        `<td>${formatCell(visHead[pos], row[origIdx] ?? '')}</td>`
+      ).join("")}</tr>`;
+    });
+
+    html += `<tr class="subtotal-row"><td colspan="${nc}">
+      <div class="subtotal-inner">
+        <span>Subtotal ${mn}:</span>
+        <span class="count-badge">${mRows.length}</span>
+      </div></td></tr>`;
+  });
+
+  html += `<tr class="grand-total-row"><td colspan="${nc}">
+    <div class="gtotal-inner">
+      <span>TOTAL DE VIAJES:</span>
+      <span class="count-badge" style="background:var(--accent);color:var(--navy)">${grand}</span>
+    </div></td></tr>`;
+
+  table.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  EXTRAS DEL RESUMEN (turno y frente)
+//  Sin datos de jornadas
+// ─────────────────────────────────────────────
+function buildDetailExtras(header, rows) {
+  const container = document.getElementById('detail-extras');
+  if (!rows.length) { container.innerHTML=""; container.style.display="none"; return; }
+
+  const hN = header.map(normKey);
+  const iT = hN.indexOf("turno");
+  const iF = hN.indexOf("frente");
+
+  let h = "";
+
+  if (iT !== -1) {
+    const turnos = {};
+    rows.forEach(r => {
+      const t = String(r[iT]||"N/D").trim();
+      turnos[t] = (turnos[t]||0)+1;
+    });
+    const tRows = Object.entries(turnos).map(([t,n]) => {
+      const cls = t.toLowerCase().startsWith("n") ? "turno-n" : "turno-d";
+      return `<div class="stat-row"><span class="turno-badge ${cls}">${escHtml(t)}</span><strong>${n}</strong></div>`;
+    }).join("");
+    h += `<div class="stat-box-light"><div class="lbl-head">Por turno</div>${tRows}</div>`;
+  }
+
+  if (iF !== -1) {
+    const frentes = {};
+    rows.forEach(r => {
+      const f = String(r[iF]||"N/D").trim();
+      frentes[f] = (frentes[f]||0)+1;
+    });
+    const fRows = Object.entries(frentes).sort((a,b)=>b[1]-a[1]).map(([f,n]) =>
+      `<div class="stat-row"><span class="frente-badge">${escHtml(f)}</span><strong>${n}</strong></div>`
+    ).join("");
+    h += `<div class="stat-box-light"><div class="lbl-head">Por frente</div>${fRows}</div>`;
+  }
+
+  container.innerHTML = h;
+  container.style.display = h ? "grid" : "none";
+}
+
+// ─────────────────────────────────────────────
+//  RESUMEN — solo total de viajes (= registros)
+//  Sin métricas de jornadas
+// ─────────────────────────────────────────────
+function buildSummary(rows) {
+  // Métricas superiores
+  const totalViajes = rows.length;
+  const counts = {};
+  rows.forEach(r => {
+    const k = MESES[extractMonthIndexFromRow(r)] || "SIN FECHA";
+    counts[k] = (counts[k]||0)+1;
+  });
+  const meses = Object.keys(counts).length;
+  const avg   = meses === 0 ? 0 : Math.round(totalViajes/meses);
+
+  const sc = document.getElementById('summary-cards');
+  sc.innerHTML = "";
+  [
+    ["Total de Viajes", totalViajes],
+    ["Meses con Actividad", meses],
+    ["Prom. Viajes / Mes", avg]
+  ].forEach(([t,v]) => {
+    const d = document.createElement('div');
+    d.className = 'metric';
+    d.innerHTML = `<h3>${escHtml(String(v))}</h3><p>${escHtml(t)}</p>`;
+    sc.appendChild(d);
+  });
+
+  // Tabla por mes
+  const st = document.getElementById('summary-table');
+  let html = `<tr class="header-row"><td>Mes</td><td>Viajes</td></tr>`;
+
+  Object.keys(counts).sort((a,b) => {
+    const ia = MESES.indexOf(a), ib = MESES.indexOf(b);
+    if(ia===-1&&ib===-1) return a.localeCompare(b);
+    if(ia===-1) return 1; if(ib===-1) return -1;
+    return ia-ib;
+  }).forEach(m => {
+    html += `<tr class="data-row">
+      <td>${escHtml(m)}</td>
+      <td><span class="count-badge">${counts[m]}</span></td>
+    </tr>`;
+  });
+
+  html += `<tr class="grand-total-row">
+    <td>Total</td>
+    <td><span class="count-badge" style="background:var(--accent);color:var(--navy)">${totalViajes}</span></td>
+  </tr>`;
+  st.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('panel-resumen').style.display  = tab==='resumen'  ? 'block':'none';
+  document.getElementById('panel-detalles').style.display = tab==='detalles' ? 'block':'none';
+}
+
+// ─────────────────────────────────────────────
+//  EXPORT PDF
+// ─────────────────────────────────────────────
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'letter' });
+  const PW  = doc.internal.pageSize.getWidth();
+  const PH  = doc.internal.pageSize.getHeight();
+  const M   = 40;
+
+  const contrato    = GLOBAL.currentContrato || "—";
+  const userName    = (sessionStorage.getItem('userName')||"").toUpperCase();
+  const now         = new Date();
+  const anio        = now.getFullYear();
+  const fechaEmision = now.toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+
+  const header  = GLOBAL.header;
+  const rows    = GLOBAL.filteredRows;
+  const visIdx  = GLOBAL.visibleColIdx;
+  const visHead = visIdx.map(i => header[i]);
+
+  function drawFooter() {
+    const pg  = doc.internal.getCurrentPageInfo().pageNumber;
+    const tot = doc.internal.getNumberOfPages();
+    doc.setDrawColor(210,220,240);
+    doc.line(M, PH-28, PW-M, PH-28);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(160);
+    doc.text(`Página ${pg} de ${tot}`, PW-M, PH-16, {align:'right'});
+    doc.text(`CADASA | Contrato ${contrato} | Generado: ${fechaEmision}`, M, PH-16);
+  }
+
+  // Encabezado
+  doc.setFillColor(11,29,58); doc.rect(0,0,PW,75,'F');
+  doc.setTextColor(255,193,7); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('CADASA – CONTROL DE TRANSPORTE', M, 28);
+  doc.setFontSize(9); doc.setTextColor(200,215,240);
+  doc.text('Informe oficial de viajes registrados', M, 46);
+  doc.setTextColor(255,193,7); doc.setFontSize(10);
+  doc.text(`Año: ${anio}`, M, 62);
+
+  // Bloque transportista
+  let y = 90;
+  doc.setFillColor(245,248,255); doc.roundedRect(M,y,PW-M*2,68,6,6,'F');
+  doc.setDrawColor(210,225,250); doc.roundedRect(M,y,PW-M*2,68,6,6,'S');
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(130,150,185);
+  doc.text('TRANSPORTISTA', M+10, y+14);
+  doc.text('N° DE CONTRATO', M+230, y+14);
+  doc.text('FECHA DE EMISIÓN', M+330, y+14);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(11,29,58);
+  doc.text(userName, M+10, y+32);
+  doc.text(contrato, M+230, y+32);
+  doc.setFontSize(9); doc.text(fechaEmision, M+330, y+32);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(130,150,185);
+  doc.text('Documento generado por el Sistema de Control de Transporte CADASA.', M+10, y+52);
+  y += 72;
+
+  // Totales
+  const totalViajes = rows.length;
+  const mCounts = {};
+  rows.forEach(r => {
+    const k = MESES[extractMonthIndexFromRow(r)]||"SIN FECHA";
+    mCounts[k] = (mCounts[k]||0)+1;
+  });
+  const meses = Object.keys(mCounts).length;
+
+  const boxes = [
+    ['Total de Viajes Registrados', String(totalViajes)],
+    ['Meses con Actividad', String(meses)],
+    ['Promedio Viajes / Mes', String(meses?Math.round(totalViajes/meses):0)]
+  ];
+  const bw = (PW-M*2)/3;
+  boxes.forEach((b,i) => {
+    const bx   = M + i*bw;
+    const fill = [[11,29,58],[0,80,200],[0,120,80]][i];
+    doc.setFillColor(...fill); doc.roundedRect(bx,y,bw-4,50,5,5,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(255,193,7);
+    doc.text(b[1], bx+10, y+28);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(200,220,255);
+    doc.text(b[0], bx+10, y+42, {maxWidth:bw-20});
+  });
+  y += 60;
+
+  // Tabla resumen por mes
+  doc.setFillColor(11,29,58); doc.rect(M,y,PW-M*2,20,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,193,7);
+  doc.text('ACTIVIDAD MENSUAL', M+8, y+13); y += 20;
+
+  const monthKeys = Object.keys(mCounts).sort((a,b) => {
+    const ia=MESES.indexOf(a), ib=MESES.indexOf(b);
+    if(ia===-1&&ib===-1) return a.localeCompare(b);
+    if(ia===-1) return 1; if(ib===-1) return -1; return ia-ib;
+  });
+  const mHead = ['Mes','Viajes'];
+  const mBody = monthKeys.map(m => [m, String(mCounts[m])]);
+  mBody.push([
+    {content:'TOTAL', styles:{fontStyle:'bold',fillColor:[11,29,58],textColor:[255,193,7]}},
+    {content:String(totalViajes), styles:{fontStyle:'bold',fillColor:[11,29,58],textColor:[255,193,7]}}
+  ]);
+
+  doc.autoTable({
+    head:[mHead], body:mBody, startY:y, theme:'striped',
+    headStyles:{fillColor:[30,60,110],textColor:[255,255,255],fontStyle:'bold',fontSize:8.5},
+    bodyStyles:{fontSize:9}, alternateRowStyles:{fillColor:[248,250,255]},
+    margin:{left:M,right:M}, didDrawPage:drawFooter
+  });
+
+  doc.addPage();
+  y = 40;
+
+  // Tabla detalle
+  if (!visHead.length || !rows.length) {
+    const tp = doc.internal.getNumberOfPages();
+    for(let i=1;i<=tp;i++){doc.setPage(i);drawFooter();}
+    doc.save(`CADASA_informe_${contrato}_${anio}.pdf`);
+    return;
+  }
+
+  doc.setFillColor(11,29,58); doc.rect(M,y,PW-M*2,20,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,193,7);
+  doc.text('REGISTRO DETALLADO DE VIAJES', M+8, y+13); y += 20;
+
+  const pdfH = visHead.map(getLabel);
+
+  const grouped2 = {};
+  rows.forEach(r => {
+    const mi = extractMonthIndexFromRow(r);
+    if(!grouped2[mi]) grouped2[mi]=[];
+    grouped2[mi].push(r);
+  });
+  const keys2   = Object.keys(grouped2).map(k=>parseInt(k,10)).sort((a,b)=>a-b);
+  const tBody   = [];
+  let   grand   = 0;
+
+  keys2.forEach(mIdx => {
+    const mn    = MESES[mIdx]||"SIN FECHA";
+    const mRows = grouped2[mIdx];
+    grand += mRows.length;
+    tBody.push([{content:mn, colSpan:pdfH.length,
+      styles:{fillColor:[235,242,255],textColor:[0,50,150],fontStyle:'bold',fontSize:8}}]);
+    mRows.forEach(r => tBody.push(visIdx.map(origIdx => String(r[origIdx]??""))));
+    tBody.push([{content:`Subtotal ${mn}: ${mRows.length} viajes`, colSpan:pdfH.length,
+      styles:{fillColor:[227,242,253],textColor:[0,102,255],fontStyle:'bold',halign:'right',fontSize:7.5}}]);
+  });
+  tBody.push([{content:`TOTAL: ${grand} viajes registrados`, colSpan:pdfH.length,
+    styles:{fillColor:[11,29,58],textColor:[255,193,7],fontStyle:'bold',halign:'right',fontSize:9}}]);
+
+  doc.autoTable({
+    head:[pdfH], body:tBody, startY:y, theme:'striped',
+    headStyles:{fillColor:[30,60,110],textColor:[255,255,255],fontStyle:'bold',fontSize:8},
+    bodyStyles:{fontSize:7.5}, alternateRowStyles:{fillColor:[250,252,255]},
+    margin:{left:M,right:M}, didDrawPage:drawFooter
+  });
+
+  const tp = doc.internal.getNumberOfPages();
+  for(let i=1;i<=tp;i++){doc.setPage(i);drawFooter();}
+  doc.save(`CADASA_informe_contrato_${contrato}_${anio}.pdf`);
+}
+
+// ─────────────────────────────────────────────
+//  UTILIDADES
+// ─────────────────────────────────────────────
+function escHtml(str) {
+  if(str===null||str===undefined) return'';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function refreshData() {
+  if(GLOBAL.currentContrato) fetchAndFilterData(GLOBAL.currentContrato);
+}
+</script>
+</body>
+</html>
+
+
+
